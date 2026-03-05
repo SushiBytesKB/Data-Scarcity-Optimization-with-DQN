@@ -1,2 +1,5 @@
-# Data-Scarcity-Optimization-with-DQN
-Data Scarcity in Multi-Tenant Systems: An Adaptive Synthetic Training Loop for Personalized Reinforcement Learning
+# Data Scarcity in Multi-Tenant Systems: An Adaptive Synthetic Training Loop for Personalized Reinforcement Learning
+
+By: Sushant Bharadwaj Kagolanu
+
+Deep Reinforcement Learning (DRL) offers powerful optimization capabilities for service industries but struggles in multi-tenant Small and Medium-sized Enterprise (SME) environments due to the "Cold Start" problem, where the performance of systems declines due to insufficient interaction data to train the complex models. This poster proposes a novel training framework to overcome data scarcity. The proposed Adaptive Synthetic Training Loop uses real interaction logs to dynamically configure a data synthesizer to effectively amplify sparse data, appending it to the training dataset. The solution is applied and demonstrated through ExquiTable, a restaurant reservation management prototype system that utilizes a Deep Q-Network (DQN) to optimize seating efficiency and profit. Comparative analysis of models is used to demonstrate the effectiveness and practicality of using hybrid datasets for deploying personalized AI in data-scarce real-world applications.
