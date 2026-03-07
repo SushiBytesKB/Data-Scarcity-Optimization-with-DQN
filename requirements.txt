@@ -1,7 +1,6 @@
-# Put all of the libraries required by user here
-scikit-learn
+# Libraries required by user
+matplotlib
 tensorflow
 numpy
-joblib
+pandas
 flask
-Flask-Cors
