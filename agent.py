@@ -1,45 +1,60 @@
-import tensorflow as tf
 import numpy as np
+import pandas as pd
+import os
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
+from preprocessor import preprocess_state, encode_action
 
-class ProfitAgent:
-    def __init__(self, duration_model_path, rl_model_path):
-        print("Loading AI Models...")
-        try:
-            # Load the .h5 files downloaded from Colab
-            self.duration_model = tf.keras.models.load_model(duration_model_path, compile=False)
-            self.rl_model = tf.keras.models.load_model(rl_model_path, compile=False)
-            print("Models loaded successfully.")
-        except Exception as e:
-            print(f"Error loading models: {e}")
-            raise e
+class DQNAgent:
+    def __init__(self, state_size=6, action_size=5):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.learning_rate = 0.001
+        self.model = self._build_model()
+
+    def _build_model(self):
+        # Build Neural Network for the Deep Q-Network
+        model = Sequential()
+        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(24, activation='relu'))
+        # Linear activation for the output because Q-values can be negative or positive
+        model.add(Dense(self.action_size, activation='linear')) 
+        model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate))
+        return model
+
+    def train_from_csv(self, csv_path, epochs=50, batch_size=32):
+        # Offline RL Training Loop
+        print(f"Loading data from {csv_path}")
+        df = pd.read_csv(csv_path)
+
+        # Pre-calculate all state vectors
+        states = np.array([preprocess_state(row)[0] for _, row in df.iterrows()])
         
-    def get_best_action(self, state_features, valid_actions, scaler):
-        if not valid_actions:
-            return {"action": "reject", "table_id": None, "predicted_value": 0}
+        # Batch predict to get current Q-value estimates for ALL actions
+        print("Predicting baseline Q-values")
+        targets = self.model.predict(states, batch_size=batch_size, verbose=0)
 
-        # Extract raw features from all valid actions
-        raw_inputs = [action['raw_features'] for action in valid_actions]
-        raw_inputs_array = np.array(raw_inputs)
-
-        # Scale them all at once
-        scaled_inputs = scaler.transform(raw_inputs_array)
-
-        # Batch Predict
-        predictions = self.rl_model.predict(scaled_inputs, verbose=0)
-
-        # Find the Best
-        best_score = -float('inf')
-        best_action = None
-
-        for i, score in enumerate(predictions):
-            # score is a list like [50.5]
-            val = float(score[0])
+        # Update the specific target for the action taken in the log
+        for i, row in df.iterrows():
+            action_idx = encode_action(row['actionType'], row['assignedTableCapacity'])
+            reward = row['targetQValue']
             
-            # Update "valid_actions" with the score for debugging
-            valid_actions[i]['predicted_value'] = val
-            
-            if val > best_score:
-                best_score = val
-                best_action = valid_actions[i]
+            # Overwrite the Q-value for the taken action with the known reward
+            targets[i][action_idx] = reward
 
-        return best_action
+        # Train the model to map the state to the updated Q-values
+        print(f"Training model on {len(states)} samples")
+        self.model.fit(states, targets, epochs=epochs, batch_size=batch_size, verbose=1)
+        print("Training complete.\n")
+
+    def save(self, name):
+        self.model.save(name)
+        print(f"Saved model as {name}")
+
+    def load(self, name):
+        if os.path.exists(name):
+            self.model.load_weights(name)
+            print(f"Loaded weights from {name}")
+        else:
+            print(f"Could not find {name}. Starting with random weights.")
