@@ -3,6 +3,11 @@ import numpy as np
 import random
 import os
 
+SEED = 30
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+
 GENERATE_TRAIN_ROWS = 100
 GENERATE_TEST_ROWS = 1000
 OUTPUT_TRAIN_FILE_NAME = 'Models/sparse_real_train.csv'
