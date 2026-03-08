@@ -1,12 +1,19 @@
 import pandas as pd
 import numpy as np
 import random
+import os
+
+SEED = 30
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
 
 OUTPUT_TRAIN_FILE_NAME = 'Models/sparse_real_train.csv'
 OUTPUT_ADAPTIVE_TRAIN_FILE_NAME = 'Models/hybrid_training_dataset.csv'
 
 SYNTHETIC_RATIO = 10  # Generate X logs for every 1 real log
 ALPHA = 0.15          # The learning rate for the EMA - (X * 100)% new data, ((1 - X) * 100)% old memory
+WARMUP_PERIOD = 20    # Read 20 logs BEFORE generating any synthetic data
 
 # The model starts with base assumptions about the restaurant
 learned_spend_mean = 80.0
@@ -107,14 +114,14 @@ def run_adaptive_loop(real_data_path, output_path):
     real_df = pd.read_csv(real_data_path)
     hybrid_dataset = []
 
-    print(f"Starting Adaptive Loop on {len(real_df)} real logs\n")
-    print("Initial Naive Spend Mean: $80.00")
+    print(f"Starting Adaptive Loop on {len(real_df)} real logs")
+    print(f"Phase 1: Warm-Up Period ({WARMUP_PERIOD} logs). No synthetic data will be generated yet.")
 
     for index, row in real_df.iterrows():
         # Append the real log to the final dataset
         hybrid_dataset.append(row.to_dict())
 
-        # Update Params (The Learning Step) - Exponential Moving Average (EMA)
+        # Update params
         learned_spend_mean = (ALPHA * row['customerAvgSpend']) + ((1 - ALPHA) * learned_spend_mean)
         learned_occ_mean = (ALPHA * row['occupancy']) + ((1 - ALPHA) * learned_occ_mean)
 
@@ -127,9 +134,14 @@ def run_adaptive_loop(real_data_path, output_path):
         learned_time_weights = (1 - ALPHA) * learned_time_weights
         learned_time_weights[time_idx] += ALPHA
 
-        # Generate Synthetic Data
-        synthetic_batch = generate_synthetic_logs(SYNTHETIC_RATIO)
-        hybrid_dataset.extend(synthetic_batch)
+        # Only after warmup is complete
+        if index + 1 > WARMUP_PERIOD:
+            if index + 1 == WARMUP_PERIOD + 1:
+                print(f"Warm-Up Complete! Learned Spend Mean is now ${learned_spend_mean:.2f}")
+                print("Beginning Synthetic Data Generation")
+                
+            synthetic_batch = generate_synthetic_logs(SYNTHETIC_RATIO)
+            hybrid_dataset.extend(synthetic_batch)
 
         # Print progress every 20 logs for the visual demo
         if (index + 1) % 20 == 0:
@@ -139,7 +151,7 @@ def run_adaptive_loop(real_data_path, output_path):
     final_df = pd.DataFrame(hybrid_dataset)
     final_df.to_csv(output_path, index=False)
     
-    print(f"\nAdaptive loop complete! Created {len(final_df)} hybrid logs")
+    print(f"\nAdaptive loop complete! Created {len(final_df)} hybrid logs.")
     print(f"Final Learned Spend Mean: ${learned_spend_mean:.2f}")
 
 if __name__ == "__main__":

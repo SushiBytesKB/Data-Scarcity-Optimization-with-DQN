@@ -1,4 +1,15 @@
 import os
+import json
+import random
+import numpy as np
+import tensorflow as tf
+
+SEED = 30
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+
 from agent import DQNAgent
 
 BASELINE_DATA = 'Models/sparse_real_train.csv'
@@ -8,32 +19,39 @@ BASELINE_MODEL_NAME = 'Models/baseline_dqn.h5'
 ADAPTIVE_MODEL_NAME = 'Models/adaptive_dqn.h5'
 
 def main():
-    print("\tStarting Offline RL Training Pipeline\n")
+    print("Starting Offline RL Training Pipeline\n")
 
     if not os.path.exists(BASELINE_DATA) or not os.path.exists(HYBRID_DATA):
-        print("Error: Please ensure you have generated the CSVs using both components")
+        print("Error: Training data not found.")
         return
 
-    # Train the Baseline Model (Method 1)
+    # Train Baseline Model
     print("Training Baseline Model (Method 1)")
-    print(f"Dataset: {BASELINE_DATA} (100 Sparse Logs)")
     baseline_agent = DQNAgent()
-    
-    baseline_agent.train_from_csv(BASELINE_DATA, epochs=100, batch_size=16)
+    # Assume 100 rows of data - 100/16 = 6.25 learning opportunities per epoch
+    # 6.25 * 100 = 625
+    baseline_history = baseline_agent.train_from_csv(BASELINE_DATA, epochs=100, batch_size=16)
     baseline_agent.save(BASELINE_MODEL_NAME)
+    
+    # Save training history
+    with open('baseline_history.json', 'w') as f:
+        json.dump(baseline_history, f)
     print("------------------------------------------\n")
 
-    # Train the Adaptive Synthetic Model (Method 2)
+    # Train Adaptive Model
     print("Training Adaptive Model (Method 2)")
-    print(f"Dataset: {HYBRID_DATA} (1100 Hybrid Logs)")
     adaptive_agent = DQNAgent()
-    
-    adaptive_agent.train_from_csv(HYBRID_DATA, epochs=50, batch_size=32)
+    # Assume 900 rows of data - 900/128 = 7.03125 learning opportunities per epoch
+    # 7.03125 * 100 = 703.125
+    adaptive_history = adaptive_agent.train_from_csv(HYBRID_DATA, epochs=100, batch_size=128)
     adaptive_agent.save(ADAPTIVE_MODEL_NAME)
+    
+    # Save training history
+    with open('adaptive_history.json', 'w') as f:
+        json.dump(adaptive_history, f)
     print("----------------------------------------------------\n")
 
     print("Pipeline Complete!")
-    print(f"Models successfully saved as '{BASELINE_MODEL_NAME}' and '{ADAPTIVE_MODEL_NAME}'.")
 
 if __name__ == "__main__":
     main()
